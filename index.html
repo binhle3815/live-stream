@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/shaka-player@3.0.0/dist/shaka-player.ui.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/shaka-player@3.0.0/dist/controls.css" rel="stylesheet">
+</head>
+<body>
+    <video id="video" width="640" controls autoplay></video>
+    <script>
+        function initApp() {
+            shaka.polyfill.installAll();
+
+            if (shaka.Player.isBrowserSupported()) {
+                initPlayer().catch(console.error);
+            } else {
+                console.error('Browser not supported!');
+            }
+        }
+
+        async function initPlayer() {
+            const video = document.getElementById('video');
+            const player = new shaka.Player(video);
+
+            const ui = new shaka.ui.Overlay(player, video, video);
+            ui.configure({ controlPanelElements: ['play_pause', 'volume', 'current_time', 'duration'] });
+
+            try {
+                await player.load('https://p2.skypeak.cloud/stream.m3u8?type=s&id=7%2Chd%2Cls&auth=7f0b2e06a734a9999aa2f319b0d526d219101e5e359'); // Sử dụng liên kết M3U8 của bạn
+                console.log('The live stream has been loaded!');
+            } catch (error) {
+                console.error('Error loading the live stream:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
