@@ -1,38 +1,138 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/shaka-player@3.0.0/dist/shaka-player.ui.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/shaka-player@3.0.0/dist/controls.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitaREC</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.0/shaka-player.compiled.js"></script>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        #video-container {
+            text-align: center;
+        }
+
+        #controls {
+            margin-top: 10px;
+        }
+
+        #controls label {
+            margin-right: 10px;
+        }
+
+        #controls select {
+            margin-right: 20px;
+        }
+    </style>
 </head>
 <body>
-    <video id="video" width="640" controls autoplay></video>
+    <div id="video-container">
+        <video id="video" width="1280" controls autoplay></video>
+        <div id="controls">
+            <label for="quality">Select Quality:</label>
+            <select id="quality"></select>
+
+            <label for="subtitles">Select Subtitles:</label>
+            <select id="subtitles">
+                <option value="off">Off</option>
+            </select>
+        </div>
+    </div>
+
     <script>
-        function initApp() {
-            shaka.polyfill.installAll();
-
-            if (shaka.Player.isBrowserSupported()) {
-                initPlayer().catch(console.error);
-            } else {
-                console.error('Browser not supported!');
-            }
-        }
-
-        async function initPlayer() {
+        document.addEventListener('DOMContentLoaded', () => {
             const video = document.getElementById('video');
+            const manifestUri = 'https://live1.beyondlive.com/restream/27eb4b9c-7e98-4daf-b40a-52e7cb267f5c/cenc/fmp4/manifest.mpd';
+
+            // Initialize shaka player
             const player = new shaka.Player(video);
 
-            const ui = new shaka.ui.Overlay(player, video, video);
-            ui.configure({ controlPanelElements: ['play_pause', 'volume', 'current_time', 'duration'] });
+            // Listen for error events
+            player.addEventListener('error', onErrorEvent);
 
-            try {
-                await player.load('https://p.skypeak.cloud/stream.m3u8?type=s&id=7%2Chd%2Cls&auth=da477748072bd9befbf2fd453247c79e19101fc3c3d'); // Sử dụng liên kết M3U8 của bạn
-                console.log('The live stream has been loaded!');
-            } catch (error) {
-                console.error('Error loading the live stream:', error);
+            // KID and KEY configuration
+            const drmConfig = {
+                videoRobustness: 'SW_SECURE_CRYPTO',
+                audioRobustness: 'SW_SECURE_CRYPTO',
+                clearKeys: {
+                    '27eb4b9c7e984dafb40a52e7cb267f5c': '2f8cb4a3c02a3542ea01caadee38c1b0'
+                }
+            };
+
+            // Configure the DRM
+            player.configure({
+                drm: drmConfig
+            });
+
+            // Load the video manifest
+            player.load(manifestUri).then(() => {
+                console.log('The video has now been loaded!');
+
+                // Set up quality selection
+                const tracks = player.getVariantTracks();
+                const qualitySelect = document.getElementById('quality');
+
+                tracks.forEach(track => {
+                    const option = document.createElement('option');
+                    option.value = track.id;
+                    option.textContent = `${track.height}p - ${Math.round(track.bandwidth / 1000)} kbps`;
+                    qualitySelect.appendChild(option);
+                });
+
+                if (tracks.length === 0) {
+                    const option = document.createElement('option');
+                    option.textContent = 'No quality options available';
+                    qualitySelect.appendChild(option);
+                }
+
+                qualitySelect.addEventListener('change', () => {
+                    player.selectVariantTrack(tracks.find(track => track.id == qualitySelect.value), true);
+                });
+
+                // Set up subtitle selection
+                const textTracks = player.getTextTracks();
+                const subtitleSelect = document.getElementById('subtitles');
+
+                textTracks.forEach(track => {
+                    const option = document.createElement('option');
+                    option.value = track.id;
+                    option.textContent = track.language;
+                    subtitleSelect.appendChild(option);
+                });
+
+                if (textTracks.length === 0) {
+                    const option = document.createElement('option');
+                    option.textContent = 'No subtitles available';
+                    subtitleSelect.appendChild(option);
+                }
+
+                subtitleSelect.addEventListener('change', () => {
+                    const selectedTrack = subtitleSelect.value;
+                    if (selectedTrack === "off") {
+                        player.setTextTrackVisibility(false);
+                    } else {
+                        player.selectTextTrack(textTracks.find(track => track.id == selectedTrack));
+                        player.setTextTrackVisibility(true);
+                    }
+                });
+
+            }).catch(onError);
+
+            function onErrorEvent(event) {
+                onError(event.detail);
             }
-        }
 
-        document.addEventListener('DOMContentLoaded', initApp);
+            function onError(error) {
+                console.error('Error code', error.code, 'object', error);
+            }
+        });
     </script>
 </body>
 </html>
